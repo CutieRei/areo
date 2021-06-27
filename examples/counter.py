@@ -1,4 +1,3 @@
-from traceback import print_exc
 import areo
 
 loop = areo.get_loop()
