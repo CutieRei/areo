@@ -1,0 +1,4 @@
+areo.code-workspace
+__pycache__**
+examples/venv/
+main.py
