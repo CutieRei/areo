@@ -3,6 +3,10 @@ from typing import Callable, List
 
 class Handle:
 
+    """
+    a wrapper for callbacks in the event loop
+    """
+
     _cancelled: bool
     _fn: Callable
     _args: List
@@ -35,6 +39,10 @@ class Handle:
         return self._cancelled
 
 class TimedHandle(Handle):
+
+    """
+    a timed handler which provides callback execution at a certain time
+    """
 
     _when: float
 

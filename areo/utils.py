@@ -6,7 +6,15 @@ from . import futures
 Future = futures.Future
 Task = futures.Task
 
-async def wait(fs: List[Union[Future, Task, Coroutine]], loop: base_loop.BaseLoop=None, timeout: Union[int, float]=None) -> Tuple[Set[Union[Future, Task]],Set[Union[Future, Task]]]:
+async def wait(fs: List[Union[Future, Task, Coroutine]], loop: base_loop.BaseLoop=None, timeout: Union[int, float]=None) -> Coroutine[Tuple[Set[Union[Future, Task]],Set[Union[Future, Task]]], None, None]:
+
+    """
+    wait for multiple Future to be completed, if `fs` contains a coroutine it will be scheduled as a Task,
+    returns a tuple containing 2 set of `done` and `pending` futures
+
+    if timeout is provided this function will return the result immediately and any pending Future will be added
+    in the `pending` set
+    """
 
     assert isinstance(timeout, (int, float)) or timeout is None
 
@@ -50,6 +58,11 @@ async def wait(fs: List[Union[Future, Task, Coroutine]], loop: base_loop.BaseLoo
     return done, pending
 
 async def sleep(delay: Union[int, float], result=True, loop: base_loop.BaseLoop=None) -> Coroutine[Any, None, None]:
+
+    """
+    sleep for `delay` seconds, this actually reschedule the Task to be run later rather than
+    actually sleeping which will block the thread and make everything stop working
+    """
     
     if loop is None:
         loop = base_loop.get_loop()
@@ -63,6 +76,12 @@ async def sleep(delay: Union[int, float], result=True, loop: base_loop.BaseLoop=
     return await waiter
 
 async def wait_for(fut: Union[Future, Task, Coroutine], timeout: Union[int, float], loop: base_loop.BaseLoop=None) -> Coroutine[Any, None, None]:
+
+    """
+    wait for a Future to be completed in `timeout` seconds if the Future isn`t done until then, this function
+    raises RuntimeError(for now) indicating its been waiting for `timeout` seconds until the Future is done and
+    cancels the Future
+    """
 
     if loop is None:
         loop = base_loop.get_loop()

@@ -24,6 +24,11 @@ _running_loop = _RunningLoops()
 
 class AbstractLoop:
 
+    """
+    The abstract class for Event Loop
+    consider subclassing BaseLoop for pre built functionality
+    """
+
     _timed_handlers: List[TimedHandle]
     _handlers: collections.deque[Handle]
     _current_task: Task
@@ -37,36 +42,79 @@ class AbstractLoop:
         pass
     
     def close(self) -> NoReturn:
+        """
+        closes the loop, after this function call scheduling wont be possible,
+        if the loop is closed this function returns immediately
+        """
         raise NotImplementedError()
     
     def stop(self) -> NoReturn:
+        """
+        stop the loop, if the loop is not running this function returns immediately
+        """
         raise NotImplementedError()
 
     def create_task(self, coro: Union[Coroutine, Task]) -> NoReturn:
+        """
+        create a task and schedule it to be run in the next iteration of the loop,
+        if `coro` is a Task this function returns immediately, if the Task is attached to a diffrent loop
+        this function raises RuntimeError
+        """
         raise NotImplementedError()
     
     def create_future(self) -> NoReturn:
+        """
+        equivalent to `areo.Future(loop)`
+        """
         raise NotImplementedError()
     
     def call_soon(self, fn: Callable, *args) -> NoReturn:
+        """
+        schedule a callback to be ran in the next iteration,
+        we suggest using `functools.partial` for keyword argument since this function does not
+        provide keyword argument for the callback
+        """
         raise NotImplementedError()
     
     def call_at(self, when: float, fn: Callable, *args) -> NoReturn:
+        """
+        schedule a callback to be called at a specific time using `time.monotonic`,
+        we suggest using `functools.partial` for keyword argument since this function does not
+        provide keyword argument for the callback
+        """
         raise NotImplementedError()
     
     def call_later(self, delay: Union[float, int], fn: Callable, *args) -> NoReturn:
+        """
+        equivalent to `loop.call_at(loop.time() + delay, fn)`
+        """
         raise NotImplementedError()
     
     def call_soon_threadsafe(self, fn: Callable, *args) -> NoReturn:
+        """
+        call_soon but with signal handler to wake up the event loop,
+        this may be called from another thread
+        """
         raise NotImplementedError()
     
     def run_forever(self) -> NoReturn:
+        """
+        run the event loop indefinitely
+        """
         raise NotImplementedError()
         
     def time(self) -> NoReturn:
+        """
+        alias for `time.monotonic`
+        """
         raise NotImplementedError()
     
     def run_until_done(self, coro: Union[Coroutine, Task, Future]) -> NoReturn:
+        """
+        run a coroutine or a task or a future until done,
+        if `coro` is a coroutine it will be wrapped in a Task
+        returns the Future result or raise Future exception
+        """
         raise NotImplementedError()
     
     def socket_recv(self, sock: socket.socket) -> NoReturn:

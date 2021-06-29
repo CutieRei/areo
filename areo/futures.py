@@ -13,6 +13,11 @@ _FINISHED = State.FINISHED
 _CANCELLED = State.CANCELLED
 
 class Future:
+
+    """
+    a future class that provide switching task to let the event loop run other task while
+    waiting until a Future object is done
+    """
     
     _loop: base_loop.BaseLoop
     _state: Union[_PENDING, _FINISHED, _CANCELLED]
@@ -59,6 +64,11 @@ class Future:
         raise RuntimeError(self._cancel_msg)
         
     def result(self) -> Any:
+        """
+        returns the result of the Future object, if the result is not set then this function
+        raises an exception, and if the exception is set this function will raise the exception
+        correspondingly and will raise exception when Future is cancelled
+        """
         if not self.done():
             raise RuntimeError("Result is not available")
         if self.cancelled():
@@ -68,6 +78,10 @@ class Future:
         return self._result
     
     def exception(self) -> BaseException:
+        """
+        returns the exception of this Future object, if the exception is not set then this function will
+        raise an exception and raises exception when Future is cancelled
+        """
         if not self.done():
             raise RuntimeError("Exception is not set")
         if self.cancelled():
@@ -86,15 +100,25 @@ class Future:
         self._loop._write_self()
     
     def add_done_callback(self, fn: Callable[[Future]]) -> None:
+        """
+        add a done callback to be ran after the future is finished or cancelled
+        """
         self._check_done()
         self._callbacks.append(fn)
     
     def remove_done_callback(self, fn: Callable[[Future]]) -> None:
+        """
+        removes a callback from the `done callback`, if the callback is not in the `done callback`
+        then this function returns immediately
+        """
         self._check_done()
         if fn in self._callbacks:
             self._callbacks.remove(fn)
     
     def set_result(self, res) -> None:
+        """
+        set the result of the Future, raises exception when Future is cancelled
+        """
         if self.cancelled():
             self._raise_cancel_error()
         self._state = _FINISHED
@@ -102,6 +126,9 @@ class Future:
         self._schedule_callbacks()
     
     def set_exception(self, exc) -> None:
+        """
+        set the exception of the Future, raises exception when Future is cancelled
+        """
         if self.cancelled():
             self._raise_cancel_error()
         self._state = _FINISHED
@@ -113,6 +140,10 @@ class Future:
 
 
 class Task(Future):
+
+    """
+    a subclass of Future that provides running coroutines in the event loop
+    """
     
     coro: Coroutine
 

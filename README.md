@@ -1,6 +1,6 @@
 # Areo
 
-## A simple async framework
+A simple async framework
 
 if you ask what have you stumbled upon, its my monstrosity. Happy coding tehee~
 
