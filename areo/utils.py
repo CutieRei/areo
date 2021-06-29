@@ -67,10 +67,20 @@ async def wait_for(fut: Union[Future, Task, Coroutine], timeout: Union[int, floa
     if loop is None:
         loop = base_loop.get_loop()
 
+    waiter = loop.create_future()
+
     if inspect.iscoroutine(fut):
         fut = loop.create_task(fut)
     
-    handle = loop.call_later(timeout, fut.cancel)
+    handle = loop.call_later(timeout, waiter.set_result, False)
 
-    fut.add_done_callback(lambda x: handle.cancel())
-    return await fut
+    def _done(fut):
+        waiter.set_result(True)
+    
+    fut.add_done_callback(_done)
+
+    res = await waiter
+    if res:
+        return fut.result()
+    else:
+        raise RuntimeError("Timed out")

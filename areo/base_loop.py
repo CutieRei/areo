@@ -1,12 +1,11 @@
 import collections
-import os
 import socket
 import threading
 import time
 import heapq
 from . import futures
 from .handlers import Handle, TimedHandle
-from typing import Any, Literal, Callable, Coroutine, List, NoReturn, Tuple, Union, final
+from typing import Any, Literal, Callable, Coroutine, List, NoReturn, Tuple, Union
 import selectors
 
 _MAX_SELECT_TIMEOUT = 5 * 3600
@@ -70,6 +69,18 @@ class AbstractLoop:
     def run_until_done(self, coro: Union[Coroutine, Task, Future]) -> NoReturn:
         raise NotImplementedError()
     
+    def socket_recv(self, sock: socket.socket) -> NoReturn:
+        raise NotImplementedError()
+
+    def socket_send(self, sock: socket.socket) -> NoReturn:
+        raise NotImplementedError()
+
+    def socket_sendall(self, sock: socket.socket) -> NoReturn:
+        raise NotImplementedError()
+    
+    def socket_accept(self, sock: socket.socket) -> NoReturn:
+        raise NotImplementedError()
+
     def _closed(self) -> NoReturn:
         raise NotImplementedError()
     
@@ -116,6 +127,28 @@ class BaseLoop(AbstractLoop):
         if not self._stopping:
             raise RuntimeError("loop must not be running to close")
         self._closed = True
+
+    def socket_accept(self, sock: socket.socket) -> socket.socket:
+        sock.setblocking(False)
+        return sock
+    
+    def socket_recv(self, sock: socket.socket) -> Union[bytes, None]:
+        if sock.getblocking():
+            raise RuntimeError("socket must not be blocking")
+        data = b""
+        while True:
+            try:
+                buff = sock.recv(4096)
+                if not buff:
+                    break
+                data += buff
+            except OSError:
+                break
+            except BlockingIOError:
+                return None
+            except:
+                raise
+        return data
     
     def _check_closed(self) -> Union[bool, NoReturn]:
         if self._closed:
@@ -164,16 +197,22 @@ class BaseLoop(AbstractLoop):
 
     def run_until_done(self, coro: Union[Coroutine, Task, Future]) -> Any:
         self._check_closed()
-        task = self.create_task(coro)
+        if not isinstance(coro, (Future, Task)):
+            task = self.create_task(coro)
+        else:
+            task = coro
+
         def _done(fut: Future):
             fut._loop.stop()
+
         task.add_done_callback(_done)
         try:
             self.run_forever()
-            return task.result()
         except:
             if not task.done():
                 task.cancel()
+        finally:
+            return task.result()
     
     def _add_handle(self, handle: Union[Handle, TimedHandle]) -> None:
         if isinstance(handle, TimedHandle):
@@ -215,8 +254,11 @@ class BaseLoop(AbstractLoop):
             timeout = self._timed_handlers[0]._when
             timeout = min(max(0, timeout-self.time()), _MAX_SELECT_TIMEOUT)
         
-        events = self._selector.select(timeout)
-        self._process_events(events)
+        try:
+            events = self._selector.select(timeout)
+            self._process_events(events)
+        except:
+            pass
 
         end = self.time()
         while self._timed_handlers:
@@ -236,8 +278,7 @@ class BaseLoop(AbstractLoop):
     
     def _process_events(self, events: List[Tuple[selectors.SelectorKey, Union[Literal[1], Literal[2]]]]) -> None:
         for key, mask in events:
-            handle = Handle(key.data, [key, mask])
-            self._add_handle(handle)
+            self.call_soon(key.data, key.fileobj, mask)
     
     def run_forever(self) -> None:
         self._check_closed()
@@ -247,6 +288,7 @@ class BaseLoop(AbstractLoop):
             try:
                 self._run_once()
                 if self._stopping:
+                    self._stopping = False
                     break
             except (SystemExit, KeyboardInterrupt):
                 raise
